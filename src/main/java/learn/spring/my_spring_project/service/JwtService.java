@@ -4,5 +4,6 @@ import learn.spring.my_spring_project.entity.User;
 
 public interface JwtService {
     String extractUsername(String token);
-    String generateToken(User user);
+    String generateAccessToken(User user);
+    String generateRefreshToken(User user);
 }

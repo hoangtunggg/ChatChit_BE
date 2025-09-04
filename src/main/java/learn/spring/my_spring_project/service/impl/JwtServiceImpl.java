@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.time.Instant;
 import java.util.Date;
 
 @Service
@@ -21,27 +20,50 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public String extractUsername(String token) {
-        Claims claims = extractClaim(token);
-        if(claims != null) {
-            Date expirationTime = claims.getExpiration();
-            boolean isExpired = expirationTime.before(Date.from(Instant.now()));
-            if(!isExpired){
-                return claims.getSubject();
-            }
-            else return null;
+        try {
+            return extractAllClaims(token).getSubject();
+        } catch (Exception e) {
+            return null;
         }
-        return null;
     }
 
     @Override
-    public String generateToken(User user) {
-        return Jwts
-                .builder()
-                .setSubject(user.getUsername())
+    public String generateAccessToken(User user) {
+        return buildToken(user.getUsername(), 1000 * 60 * 15, "access"); // 15 phu    t
+    }
+
+    @Override
+    public String generateRefreshToken(User user) {
+        return buildToken(user.getUsername(), 1000L * 60 * 60 * 24 * 7, "refresh"); // 7 ngay
+    }
+
+
+    private boolean isTokenValid(String token, User user){
+        String username = extractUsername(token);
+        return (username != null && username.equals(user.getUsername())) && !isTokenExpired(token);
+    }
+
+    public boolean isAccessTokenValid(String token, User user) {
+        return isTokenValid(token, user);
+    }
+
+    public boolean isRefreshTokenValid(String token, User user) {
+        return isTokenValid(token, user);
+    }
+
+
+    private String buildToken (String subject, long expirationMillis, String type){
+        return Jwts.builder()
+                .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24))
+                .setExpiration(new Date(System.currentTimeMillis() + expirationMillis))
+                .claim("type", type)
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    private boolean isTokenExpired(String token){
+        return extractAllClaims(token).getExpiration().before(new Date());
     }
 
     private Key getSignInKey() {
@@ -49,7 +71,7 @@ public class JwtServiceImpl implements JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    private Claims extractClaim(String token) {
+    private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSignInKey())
                 .build()

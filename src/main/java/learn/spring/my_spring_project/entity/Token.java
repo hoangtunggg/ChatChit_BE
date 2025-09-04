@@ -24,5 +24,7 @@ public class Token {
 
     public boolean expired; // het han hay chua
 
-    public Long userId; // userId
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 }
